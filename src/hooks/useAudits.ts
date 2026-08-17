@@ -1,7 +1,7 @@
 import { useDataEngine } from '@dhis2/app-runtime'
 import { useCallback, useEffect, useState } from 'react'
 import { AUDITS_KEY, CURRENT_SCHEMA_VERSION, DATASTORE_RESOURCE, isNotFoundError, type AuditsBlob } from '../lib/dataStore'
-import type { AuditConfig } from '../types/audit'
+import { withLookbackDaysDefault, type AuditConfig } from '../types/audit'
 
 interface State {
   loading: boolean
@@ -34,7 +34,7 @@ export function useAudits(): UseAuditsResult {
         blob: { resource: DATASTORE_RESOURCE, id: AUDITS_KEY },
       })) as unknown as DataStoreGetResponse
       setKeyExists(true)
-      setState({ loading: false, error: null, audits: response.blob.audits ?? [] })
+      setState({ loading: false, error: null, audits: (response.blob.audits ?? []).map(withLookbackDaysDefault) })
     } catch (error) {
       if (isNotFoundError(error)) {
         // Expected on a fresh install -- the key hasn't been created yet.

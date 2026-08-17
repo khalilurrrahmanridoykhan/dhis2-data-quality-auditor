@@ -76,6 +76,22 @@ export function defaultLookbackDays(mode: FreshnessMode): number {
   return mode === 'operational' ? 365 : 1825
 }
 
+// Real bug found live, not hypothetical: lookbackDays was added as a
+// non-nullable field, but audits saved before this field existed have no
+// such property in their stored JSON. Reading one straight off the
+// dataStore left `lookbackDays` as `undefined` at runtime despite the type
+// claiming `number` -- computeStartDate(undefined) then produced an
+// Invalid Date, and calling .toISOString() on it threw a RangeError deep
+// inside the per-audit report fetch, which never got caught by the caller,
+// leaving the whole app stuck on its loading spinner forever. Fixed at the
+// single point every audit is read from the dataStore (useAudits.ts),
+// rather than defending every consumer -- every AuditConfig the rest of
+// the app ever sees is guaranteed complete from here on.
+export function withLookbackDaysDefault(audit: AuditConfig): AuditConfig {
+  if (typeof audit.lookbackDays === 'number' && !Number.isNaN(audit.lookbackDays)) return audit
+  return { ...audit, lookbackDays: defaultLookbackDays(audit.freshnessMode) }
+}
+
 export function newAuditDefaults(): Pick<
   AuditConfig,
   | 'outlierDetectionEnabled'
