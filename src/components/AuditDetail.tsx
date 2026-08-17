@@ -1,6 +1,7 @@
 import { Button, ButtonStrip, Card, CircularLoader, NoticeBox } from '@dhis2/ui'
 import type { ReactNode } from 'react'
 import { useAuditReports } from '../context/AuditReportsContext'
+import i18n from '../locales'
 import type { AuditConfig } from '../types/audit'
 import { FreshnessTag, QualityTag } from './StatusTag'
 
@@ -41,8 +42,8 @@ export function AuditDetail({
 
   if (state.error || !state.report) {
     return (
-      <NoticeBox error title="Could not load this audit's data">
-        {state.error ?? 'No response was returned by this DHIS2 instance.'}
+      <NoticeBox error title={i18n.t("Could not load this audit's data")}>
+        {state.error ?? i18n.t('No response was returned by this DHIS2 instance.')}
       </NoticeBox>
     )
   }
@@ -60,15 +61,15 @@ export function AuditDetail({
         </div>
         <ButtonStrip>
           <Button small onClick={() => refresh(audit.id)}>
-            Refresh
+            {i18n.t('Refresh')}
           </Button>
           {canManage && (
             <>
               <Button small onClick={onEdit}>
-                Edit
+                {i18n.t('Edit')}
               </Button>
               <Button small destructive onClick={onDelete}>
-                Delete
+                {i18n.t('Delete')}
               </Button>
             </>
           )}
@@ -83,44 +84,54 @@ export function AuditDetail({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
         <Card>
           <div style={{ padding: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Coverage</h3>
-            <SummaryRow label="Date range" value={coverage.startDate ? `${coverage.startDate} – ${coverage.endDate}` : 'No data'} />
-            <SummaryRow label="Data values" value={coverage.recordCount} />
-            <SummaryRow label="Org units reporting" value={coverage.locationCount} />
-            <SummaryRow label="Distinct periods" value={coverage.periodCount} />
+            <h3 style={{ marginTop: 0 }}>{i18n.t('Coverage')}</h3>
+            <SummaryRow
+              label={i18n.t('Date range')}
+              value={coverage.startDate ? `${coverage.startDate} – ${coverage.endDate}` : i18n.t('No data')}
+            />
+            <SummaryRow label={i18n.t('Data values')} value={coverage.recordCount} />
+            <SummaryRow label={i18n.t('Org units reporting')} value={coverage.locationCount} />
+            <SummaryRow label={i18n.t('Distinct periods')} value={coverage.periodCount} />
           </div>
         </Card>
 
         <Card>
           <div style={{ padding: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Freshness</h3>
-            <SummaryRow label="Status" value={humanize(freshness.status)} />
-            <SummaryRow label="Latest period end" value={freshness.latestPeriodEnd ?? 'Unknown'} />
-            <SummaryRow label="Age" value={freshness.ageDays === null ? 'Unknown' : `${freshness.ageDays} days`} />
+            <h3 style={{ marginTop: 0 }}>{i18n.t('Freshness')}</h3>
+            <SummaryRow label={i18n.t('Status')} value={humanize(freshness.status)} />
+            <SummaryRow label={i18n.t('Latest period end')} value={freshness.latestPeriodEnd ?? i18n.t('Unknown')} />
             <SummaryRow
-              label="Expected update cycle"
-              value={freshness.expectedUpdateDays === null ? 'Not specified' : `Every ${freshness.expectedUpdateDays} days`}
+              label={i18n.t('Age')}
+              value={freshness.ageDays === null ? i18n.t('Unknown') : i18n.t('{{days}} days', { days: freshness.ageDays })}
+            />
+            <SummaryRow
+              label={i18n.t('Expected update cycle')}
+              value={
+                freshness.expectedUpdateDays === null
+                  ? i18n.t('Not specified')
+                  : i18n.t('Every {{days}} days', { days: freshness.expectedUpdateDays })
+              }
             />
           </div>
         </Card>
 
         <Card>
           <div style={{ padding: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Provenance</h3>
+            <h3 style={{ marginTop: 0 }}>{i18n.t('Provenance')}</h3>
             <SummaryRow
-              label="Source"
+              label={i18n.t('Source')}
               value={
                 provenance.sourceUrl ? (
                   <a href={provenance.sourceUrl} target="_blank" rel="noreferrer">
                     {provenance.sourceName ?? provenance.sourceUrl}
                   </a>
                 ) : (
-                  provenance.sourceName ?? 'Not specified'
+                  provenance.sourceName ?? i18n.t('Not specified')
                 )
               }
             />
-            <SummaryRow label="License" value={provenance.license ?? 'Not specified'} />
-            <SummaryRow label="DOI" value={provenance.doi ?? 'Not specified'} />
+            <SummaryRow label={i18n.t('License')} value={provenance.license ?? i18n.t('Not specified')} />
+            <SummaryRow label={i18n.t('DOI')} value={provenance.doi ?? i18n.t('Not specified')} />
           </div>
         </Card>
       </div>
@@ -128,7 +139,8 @@ export function AuditDetail({
       <Card>
         <div style={{ padding: 16 }}>
           <h3 style={{ marginTop: 0 }}>
-            Quality checks <span style={{ fontWeight: 400, color: '#6e7a89' }}>({quality.issueCount} issues)</span>
+            {i18n.t('Quality checks')}{' '}
+            <span style={{ fontWeight: 400, color: '#6e7a89' }}>{i18n.t('({{count}} issues)', { count: quality.issueCount })}</span>
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {quality.checks.map((check) => (
@@ -146,10 +158,10 @@ export function AuditDetail({
         </div>
       </Card>
 
-      {audit.description && <NoticeBox title="Notes">{audit.description}</NoticeBox>}
+      {audit.description && <NoticeBox title={i18n.t('Notes')}>{audit.description}</NoticeBox>}
 
       <p style={{ fontSize: 12, color: '#a0a7ae', margin: 0 }}>
-        Values are summed across all category option combinations for this data element.
+        {i18n.t('Values are summed across all category option combinations for this data element.')}
       </p>
     </div>
   )

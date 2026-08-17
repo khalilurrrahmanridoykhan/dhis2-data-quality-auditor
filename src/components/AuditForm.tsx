@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDataSetDetail, isNumericValueType } from '../hooks/useDataSetDetail'
 import { useDataSets } from '../hooks/useDataSets'
 import { useOrgUnitRoots } from '../hooks/useOrgUnitRoots'
+import i18n from '../locales'
 import { AMR_PRESETS, type AuditPreset } from '../lib/presets'
 import {
   SUPPORTED_PERIOD_TYPES,
@@ -197,10 +198,10 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   }
 
   function validate(): string | null {
-    if (!name.trim()) return 'Name is required.'
-    if (!dataSetId) return 'Select a dataset.'
-    if (!dataElementId) return 'Select a data element.'
-    if (orgUnitIds.length === 0) return 'Select at least one org unit.'
+    if (!name.trim()) return i18n.t('Name is required.')
+    if (!dataSetId) return i18n.t('Select a dataset.')
+    if (!dataElementId) return i18n.t('Select a data element.')
+    if (orgUnitIds.length === 0) return i18n.t('Select at least one org unit.')
     // The tree browses the whole instance hierarchy (it has no concept of
     // "only this dataset's org units"), so this is where that constraint is
     // actually enforced -- the same correctness property the old flat
@@ -210,17 +211,22 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
       const invalidIds = orgUnitIds.filter((id) => !assignedIds.has(id))
       if (invalidIds.length > 0) {
         const invalidLabel = invalidIds.map((id) => orgUnitNamesById[id] ?? id).join(', ')
-        return `These selected org units aren't assigned to this dataset: ${invalidLabel}. Deselect them in the tree above.`
+        return i18n.t("These selected org units aren't assigned to this dataset -- {{invalidLabel}}. Deselect them in the tree above.", {
+          invalidLabel,
+        })
       }
     }
     if (!periodTypeSupported) {
-      return `This dataset's period type (${detail?.periodType ?? 'unknown'}) is not supported yet. Supported types: ${SUPPORTED_PERIOD_TYPES.join(', ')}.`
+      return i18n.t("This dataset's period type ({{periodType}}) is not supported yet. Supported types -- {{supported}}.", {
+        periodType: detail?.periodType ?? i18n.t('unknown'),
+        supported: SUPPORTED_PERIOD_TYPES.join(', '),
+      })
     }
     if (freshnessMode === 'operational' && expectedUpdateDays && Number.isNaN(Number(expectedUpdateDays))) {
-      return 'Expected update cycle must be a number.'
+      return i18n.t('Expected update cycle must be a number.')
     }
     if (!lookbackDays.trim() || Number.isNaN(Number(lookbackDays)) || Number(lookbackDays) <= 0) {
-      return 'Lookback window must be a positive number of days.'
+      return i18n.t('Lookback window must be a positive number of days.')
     }
     return null
   }
@@ -278,11 +284,11 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
   return (
     <Modal onClose={onClose} large>
-      <ModalTitle>{isEditing ? 'Edit audit' : 'Add audit'}</ModalTitle>
+      <ModalTitle>{isEditing ? i18n.t('Edit audit') : i18n.t('Add audit')}</ModalTitle>
       <ModalContent>
         {formError && (
           <div style={{ marginBottom: 16 }}>
-            <NoticeBox error title="Could not save this audit">
+            <NoticeBox error title={i18n.t('Could not save this audit')}>
               {formError}
             </NoticeBox>
           </div>
@@ -290,20 +296,22 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <InputField
-            label="Name"
+            label={i18n.t('Name')}
             required
             value={name}
             onChange={({ value }) => setName(value ?? '')}
-            placeholder="e.g. Malaria confirmed cases, Northern region"
+            placeholder={i18n.t('e.g. Malaria confirmed cases, Northern region')}
           />
 
           {!isEditing && (
             <SimpleSingleSelectField
               name="preset"
-              label="Start from a preset (optional)"
+              label={i18n.t('Start from a preset (optional)')}
               clearable
-              clearText="None -- plain audit"
-              helpText="Prefills freshness cadence, thresholds, and source attribution for a known surveillance domain. You still pick the actual dataset, data element, and org units for your instance below -- presets never assume a UID."
+              clearText={i18n.t('None -- plain audit')}
+              helpText={i18n.t(
+                'Prefills freshness cadence, thresholds, and source attribution for a known surveillance domain. You still pick the actual dataset, data element, and org units for your instance below -- presets never assume a UID.',
+              )}
               options={AMR_PRESETS.map((p) => ({ label: p.label, value: p.id }))}
               value={presetId ?? ''}
               onChange={(value) => {
@@ -319,14 +327,14 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
           <SimpleSingleSelectField
             name="dataset"
-            label="Dataset"
+            label={i18n.t('Dataset')}
             required
             filterable
-            filterPlaceholder="Search datasets by name..."
+            filterPlaceholder={i18n.t('Search datasets by name...')}
             filterValue={datasetSearchTerm}
             onFilterChange={setDatasetSearchTerm}
             loading={dataSetsLoading}
-            noMatchText="No datasets match this search."
+            noMatchText={i18n.t('No datasets match this search.')}
             options={dataSets.map((ds) => ({ label: `${ds.name} (${ds.periodType})`, value: ds.id }))}
             value={dataSetId ?? ''}
             valueLabel={dataSetName || undefined}
@@ -341,13 +349,13 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
             <>
               <SimpleSingleSelectField
                 name="dataElement"
-                label="Data element"
+                label={i18n.t('Data element')}
                 required
                 loading={detailLoading}
                 filterable
-                filterPlaceholder="Filter data elements..."
-                noMatchText="No numeric data elements found in this dataset."
-                empty="This dataset has no numeric data elements to audit."
+                filterPlaceholder={i18n.t('Filter data elements...')}
+                noMatchText={i18n.t('No numeric data elements found in this dataset.')}
+                empty={i18n.t('This dataset has no numeric data elements to audit.')}
                 options={numericDataElements.map((de) => ({ label: de.name, value: de.id }))}
                 value={dataElementId ?? ''}
                 valueLabel={dataElementName || undefined}
@@ -360,21 +368,22 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
               {detail && (
                 <div style={{ fontSize: 13, color: '#6e7a89' }}>
-                  Period type: <strong>{detail.periodType}</strong>
+                  {i18n.t('Period type:')} <strong>{detail.periodType}</strong>
                   {!periodTypeSupported && (
                     <span style={{ color: '#c22a2a' }}>
                       {' '}
-                      -- not supported yet. Supported: {SUPPORTED_PERIOD_TYPES.join(', ')}.
+                      {i18n.t('-- not supported yet. Supported -- {{supported}}.', { supported: SUPPORTED_PERIOD_TYPES.join(', ') })}
                     </span>
                   )}
                 </div>
               )}
 
               <div>
-                <div style={{ marginBottom: 8, fontWeight: 500 }}>Org units to query *</div>
+                <div style={{ marginBottom: 8, fontWeight: 500 }}>{i18n.t('Org units to query')} *</div>
                 <div style={{ fontSize: 12, color: '#6e7a89', marginBottom: 8 }}>
-                  Browses the whole instance hierarchy -- selecting an org unit not assigned to this dataset will
-                  block saving below.
+                  {i18n.t(
+                    "Browses the whole instance hierarchy -- selecting an org unit not assigned to this dataset will block saving below.",
+                  )}
                 </div>
                 {orgUnitRootsLoading || detailLoading ? (
                   <CircularLoader small />
@@ -395,15 +404,15 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
               </div>
 
               <CheckboxField
-                label="Require all selected org units to report (recommended)"
+                label={i18n.t('Require all selected org units to report (recommended)')}
                 checked={requireAllOrgUnits}
                 onChange={({ checked }) => handleToggleRequireAll(checked)}
-                helpText="Unchecked lets you narrow which org units are actually expected to have data -- feeds the coverage check."
+                helpText={i18n.t('Unchecked lets you narrow which org units are actually expected to have data -- feeds the coverage check.')}
               />
 
               {!requireAllOrgUnits && orgUnitIds.length > 0 && (
                 <MultiSelectField
-                  label="Org units actually expected to report"
+                  label={i18n.t('Org units actually expected to report')}
                   selected={expectedOrgUnitIds}
                   onChange={({ selected }) => setExpectedOrgUnitIds(selected)}
                 >
@@ -416,15 +425,15 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
           )}
 
           <div>
-            <div style={{ marginBottom: 8, fontWeight: 500 }}>Freshness</div>
+            <div style={{ marginBottom: 8, fontWeight: 500 }}>{i18n.t('Freshness')}</div>
             <div style={{ display: 'flex', gap: 24 }}>
               <Radio
-                label="Operational (should update regularly)"
+                label={i18n.t('Operational (should update regularly)')}
                 checked={freshnessMode === 'operational'}
                 onChange={() => setFreshnessMode('operational')}
               />
               <Radio
-                label="Historical (a fixed, closed dataset)"
+                label={i18n.t('Historical (a fixed, closed dataset)')}
                 checked={freshnessMode === 'historical'}
                 onChange={() => setFreshnessMode('historical')}
               />
@@ -433,59 +442,61 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
           {freshnessMode === 'operational' && (
             <InputField
-              label="Expected update cycle (days)"
+              label={i18n.t('Expected update cycle (days)')}
               type="number"
               value={expectedUpdateDays}
               onChange={({ value }) => setExpectedUpdateDays(value ?? '')}
-              helpText="How many days can pass before this audit is considered stale."
+              helpText={i18n.t('How many days can pass before this audit is considered stale.')}
             />
           )}
 
           <InputField
-            label="Lookback window (days)"
+            label={i18n.t('Lookback window (days)')}
             type="number"
             value={lookbackDays}
             onChange={({ value }) => {
               lookbackDaysTouchedRef.current = true
               setLookbackDays(value ?? '')
             }}
-            helpText="How far back audit queries look. Defaults from the freshness mode above -- shorten it for a large, high-frequency dataset, or lengthen it for a dataset with sparse historical reporting."
+            helpText={i18n.t(
+              'How far back audit queries look. Defaults from the freshness mode above -- shorten it for a large, high-frequency dataset, or lengthen it for a dataset with sparse historical reporting.',
+            )}
           />
 
-          <InputField label="Description / notes (optional)" value={description} onChange={({ value }) => setDescription(value ?? '')} />
-          <InputField label="Source name (optional)" value={sourceName} onChange={({ value }) => setSourceName(value ?? '')} />
-          <InputField label="Source URL (optional)" value={sourceUrl} onChange={({ value }) => setSourceUrl(value ?? '')} />
-          <InputField label="License (optional)" value={license} onChange={({ value }) => setLicense(value ?? '')} />
-          <InputField label="DOI (optional)" value={doi} onChange={({ value }) => setDoi(value ?? '')} />
+          <InputField label={i18n.t('Description / notes (optional)')} value={description} onChange={({ value }) => setDescription(value ?? '')} />
+          <InputField label={i18n.t('Source name (optional)')} value={sourceName} onChange={({ value }) => setSourceName(value ?? '')} />
+          <InputField label={i18n.t('Source URL (optional)')} value={sourceUrl} onChange={({ value }) => setSourceUrl(value ?? '')} />
+          <InputField label={i18n.t('License (optional)')} value={license} onChange={({ value }) => setLicense(value ?? '')} />
+          <InputField label={i18n.t('DOI (optional)')} value={doi} onChange={({ value }) => setDoi(value ?? '')} />
 
           <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 16, marginTop: 8 }}>
-            <h4 style={{ margin: '0 0 12px' }}>Advanced (public-health-grade checks)</h4>
+            <h4 style={{ margin: '0 0 12px' }}>{i18n.t('Advanced (public-health-grade checks)')}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <CheckboxField
-                label="Enable outlier detection"
+                label={i18n.t('Enable outlier detection')}
                 checked={outlierDetectionEnabled}
                 onChange={({ checked }) => setOutlierDetectionEnabled(checked)}
-                helpText="Uses this instance's native outlier-detection analysis where available, otherwise an interquartile-range check."
+                helpText={i18n.t("Uses this instance's native outlier-detection analysis where available, otherwise an interquartile-range check.")}
               />
 
               <InputField
-                label="Flag period-over-period changes larger than (%)"
+                label={i18n.t('Flag period-over-period changes larger than (%)')}
                 type="number"
                 value={trendChangeThresholdPercent}
                 onChange={({ value }) => setTrendChangeThresholdPercent(value ?? '')}
-                helpText="Leave blank to disable trend/spike-drop detection."
+                helpText={i18n.t('Leave blank to disable trend/spike-drop detection.')}
               />
 
               {dataSetId && (
                 <SimpleSingleSelectField
                   name="comparisonDataElement"
-                  label="Compare against a second data element (optional)"
+                  label={i18n.t('Compare against a second data element (optional)')}
                   clearable
-                  clearText="None"
+                  clearText={i18n.t('None')}
                   loading={detailLoading}
                   filterable
-                  filterPlaceholder="Filter data elements..."
-                  noMatchText="No other numeric data elements found."
+                  filterPlaceholder={i18n.t('Filter data elements...')}
+                  noMatchText={i18n.t('No other numeric data elements found.')}
                   options={comparisonOptions.map((de) => ({ label: de.name, value: de.id }))}
                   value={comparisonDataElementId ?? ''}
                   valueLabel={comparisonDataElementName || undefined}
@@ -505,20 +516,20 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
               {comparisonDataElementId && (
                 <>
                   <InputField
-                    label="Ratio label"
+                    label={i18n.t('Ratio label')}
                     value={comparisonLabel}
                     onChange={({ value }) => setComparisonLabel(value ?? '')}
-                    placeholder="e.g. positivity rate"
+                    placeholder={i18n.t('e.g. positivity rate')}
                   />
                   <div style={{ display: 'flex', gap: 16 }}>
                     <InputField
-                      label="Expected ratio minimum"
+                      label={i18n.t('Expected ratio minimum')}
                       type="number"
                       value={expectedRatioMin}
                       onChange={({ value }) => setExpectedRatioMin(value ?? '')}
                     />
                     <InputField
-                      label="Expected ratio maximum"
+                      label={i18n.t('Expected ratio maximum')}
                       type="number"
                       value={expectedRatioMax}
                       onChange={({ value }) => setExpectedRatioMax(value ?? '')}
@@ -533,10 +544,10 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
       <ModalActions>
         <ButtonStrip end>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {i18n.t('Cancel')}
           </Button>
           <Button primary onClick={handleSave} loading={saving}>
-            {isEditing ? 'Save changes' : 'Add audit'}
+            {isEditing ? i18n.t('Save changes') : i18n.t('Add audit')}
           </Button>
         </ButtonStrip>
       </ModalActions>

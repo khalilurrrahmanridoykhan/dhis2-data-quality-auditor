@@ -1,5 +1,6 @@
 import { Button, CircularLoader, Menu, MenuItem } from '@dhis2/ui'
 import { useAuditReports } from '../context/AuditReportsContext'
+import i18n from '../locales'
 import type { AuditConfig } from '../types/audit'
 import { QualityTag } from './StatusTag'
 
@@ -44,7 +45,7 @@ export function AuditList({
       {canManage && (
         <div style={{ padding: 12 }}>
           <Button small primary onClick={onAddAudit}>
-            Add audit
+            {i18n.t('Add audit')}
           </Button>
         </div>
       )}

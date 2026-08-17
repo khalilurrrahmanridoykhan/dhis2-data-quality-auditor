@@ -7,6 +7,7 @@ import { EmptyState } from './components/EmptyState'
 import { AuditReportsProvider } from './context/AuditReportsContext'
 import { useAudits } from './hooks/useAudits'
 import { useCurrentUserAuthorities } from './hooks/useCurrentUserAuthorities'
+import i18n from './locales'
 import type { AuditConfig } from './types/audit'
 
 export default function App() {
@@ -46,7 +47,7 @@ export default function App() {
     <>
       {saveError && (
         <AlertBar critical onHidden={() => setSaveError(null)}>
-          {`Could not save: ${saveError}`}
+          {i18n.t('Could not save -- {{error}}', { error: saveError })}
         </AlertBar>
       )}
       {/* Wraps both the sidebar and the detail pane so AuditList's status
@@ -71,7 +72,7 @@ export default function App() {
                 <CircularLoader />
               </div>
             ) : error ? (
-              <NoticeBox error title="Could not load configured audits">
+              <NoticeBox error title={i18n.t('Could not load configured audits')}>
                 {error}
               </NoticeBox>
             ) : audits.length === 0 ? (
@@ -102,15 +103,15 @@ export default function App() {
 
       {deleteTarget && (
         <Modal small onClose={() => setDeleteTarget(null)}>
-          <ModalTitle>Delete audit</ModalTitle>
-          <ModalContent>{`Delete "${deleteTarget.name}"? This cannot be undone.`}</ModalContent>
+          <ModalTitle>{i18n.t('Delete audit')}</ModalTitle>
+          <ModalContent>{i18n.t('Delete "{{name}}"? This cannot be undone.', { name: deleteTarget.name })}</ModalContent>
           <ModalActions>
             <ButtonStrip end>
               <Button onClick={() => setDeleteTarget(null)} disabled={deleting}>
-                Cancel
+                {i18n.t('Cancel')}
               </Button>
               <Button destructive onClick={confirmDelete} loading={deleting}>
-                Delete
+                {i18n.t('Delete')}
               </Button>
             </ButtonStrip>
           </ModalActions>
