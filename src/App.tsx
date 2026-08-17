@@ -1,4 +1,4 @@
-import { AlertBar, CircularLoader, NoticeBox } from '@dhis2/ui'
+import { AlertBar, Button, ButtonStrip, CircularLoader, Modal, ModalActions, ModalContent, ModalTitle, NoticeBox } from '@dhis2/ui'
 import { useState } from 'react'
 import { AuditDetail } from './components/AuditDetail'
 import { AuditForm } from './components/AuditForm'
@@ -15,6 +15,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [formState, setFormState] = useState<{ open: boolean; audit: AuditConfig | null }>({ open: false, audit: null })
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AuditConfig | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const selected = audits.find((a) => a.id === selectedId) ?? audits[0] ?? null
 
@@ -26,13 +28,17 @@ export default function App() {
     setFormState({ open: true, audit })
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm('Delete this audit? This cannot be undone.')) return
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteAudit(id)
-      if (selectedId === id) setSelectedId(null)
+      await deleteAudit(deleteTarget.id)
+      if (selectedId === deleteTarget.id) setSelectedId(null)
+      setDeleteTarget(null)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -75,7 +81,7 @@ export default function App() {
                 audit={selected}
                 canManage={canManage}
                 onEdit={() => openEditForm(selected)}
-                onDelete={() => handleDelete(selected.id)}
+                onDelete={() => setDeleteTarget(selected)}
               />
             ) : null}
           </main>
@@ -92,6 +98,23 @@ export default function App() {
             setSelectedId(audit.id)
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal small onClose={() => setDeleteTarget(null)}>
+          <ModalTitle>Delete audit</ModalTitle>
+          <ModalContent>{`Delete "${deleteTarget.name}"? This cannot be undone.`}</ModalContent>
+          <ModalActions>
+            <ButtonStrip end>
+              <Button onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button destructive onClick={confirmDelete} loading={deleting}>
+                Delete
+              </Button>
+            </ButtonStrip>
+          </ModalActions>
+        </Modal>
       )}
     </>
   )
