@@ -2,7 +2,7 @@
 
 A native DHIS2 App that lets **any admin, on any DHIS2 instance**, point coverage, freshness, plausibility, and RDQA-aligned quality checks at **any dataset and data element** -- no bundled programme list, no code changes, no redeploy.
 
-This is a generalized sibling of [OneHealth Data Trust](../dhis2-app), which hardcodes 8 disease programmes for one specific instance. Both apps share the same underlying quality-check logic (see `src/lib/qualityChecks.ts`, ported from OneHealth Data Trust and extended here); this app replaces the static, hand-compiled config with a runtime admin UI backed by this instance's own `dataStore`.
+This is a generalized sibling of [OneHealth Data Trust](https://github.com/khalilurrrahmanridoykhan/onehealth-platform/tree/main/dhis2-app), which hardcodes 8 disease programmes for one specific instance. Both apps share the same underlying quality-check logic (see `src/lib/qualityChecks.ts`, ported from OneHealth Data Trust and extended here); this app replaces the static, hand-compiled config with a runtime admin UI backed by this instance's own `dataStore`.
 
 **Scope is unbounded.** There is no fixed audit count and no country tie anywhere in this app's design. Every string a user sees -- dataset names, data element names, org unit names -- comes live from the installing instance's own metadata API. On a fresh install, `audits` is an empty array: nothing is bundled.
 
