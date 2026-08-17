@@ -2,6 +2,7 @@ import {
   Button,
   ButtonStrip,
   CheckboxField,
+  CircularLoader,
   InputField,
   Modal,
   ModalActions,
@@ -10,14 +11,23 @@ import {
   MultiSelectField,
   MultiSelectOption,
   NoticeBox,
+  OrganisationUnitTree,
   Radio,
   SimpleSingleSelectField,
 } from '@dhis2/ui'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDataSetDetail, isNumericValueType } from '../hooks/useDataSetDetail'
 import { useDataSets } from '../hooks/useDataSets'
+import { useOrgUnitRoots } from '../hooks/useOrgUnitRoots'
 import { AMR_PRESETS, type AuditPreset } from '../lib/presets'
-import { SUPPORTED_PERIOD_TYPES, newAuditDefaults, type AuditConfig, type FreshnessMode, type PeriodType } from '../types/audit'
+import {
+  SUPPORTED_PERIOD_TYPES,
+  defaultLookbackDays,
+  newAuditDefaults,
+  type AuditConfig,
+  type FreshnessMode,
+  type PeriodType,
+} from '../types/audit'
 
 // This app's first-ever form UI -- OneHealth Data Trust uses zero @dhis2/ui
 // form components today. The whole point of this form is the metadata-picker
@@ -49,7 +59,16 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   const [dataElementId, setDataElementId] = useState<string | null>(audit?.dataElementId ?? null)
   const [dataElementName, setDataElementName] = useState(audit?.dataElementName ?? '')
 
-  const [orgUnitIds, setOrgUnitIds] = useState<string[]>(audit?.orgUnits.map((ou) => ou.id) ?? [])
+  // OrganisationUnitTree selects by path ("id/id/id"), not a bare id array
+  // -- orgUnitIds is derived from it, not stored directly, so every other
+  // consumer below (validate(), selectedOrgUnits, the save payload) keeps
+  // working unchanged against a plain string[] of ids.
+  const [orgUnitPaths, setOrgUnitPaths] = useState<string[]>([])
+  const orgUnitIds = useMemo(() => orgUnitPaths.map((p) => p.split('/').pop()!), [orgUnitPaths])
+  const [orgUnitNamesById, setOrgUnitNamesById] = useState<Record<string, string>>(
+    Object.fromEntries((audit?.orgUnits ?? []).map((ou) => [ou.id, ou.name])),
+  )
+  const seededOrgUnitPathsRef = useRef(false)
   const [requireAllOrgUnits, setRequireAllOrgUnits] = useState(
     audit ? audit.expectedOrgUnitIds.length === audit.orgUnits.length : true,
   )
@@ -59,6 +78,8 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   const [expectedUpdateDays, setExpectedUpdateDays] = useState(
     audit?.expectedUpdateDays !== null && audit?.expectedUpdateDays !== undefined ? String(audit.expectedUpdateDays) : '',
   )
+  const [lookbackDays, setLookbackDays] = useState(String(audit?.lookbackDays ?? defaultLookbackDays(freshnessMode)))
+  const lookbackDaysTouchedRef = useRef(audit !== null)
 
   const [sourceName, setSourceName] = useState(audit?.sourceName ?? '')
   const [sourceUrl, setSourceUrl] = useState(audit?.sourceUrl ?? '')
@@ -114,19 +135,43 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
 
   const { dataSets, loading: dataSetsLoading } = useDataSets(datasetSearchTerm)
   const { detail, loading: detailLoading } = useDataSetDetail(dataSetId)
+  const { roots: orgUnitRoots, loading: orgUnitRootsLoading } = useOrgUnitRoots()
 
   // Reset picks that depend on the dataset whenever it changes.
   useEffect(() => {
     if (!isEditing) {
       setDataElementId(null)
       setDataElementName('')
-      setOrgUnitIds([])
+      setOrgUnitPaths([])
       setExpectedOrgUnitIds([])
       setComparisonDataElementId(null)
       setComparisonDataElementName('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataSetId])
+
+  // Pre-seed the tree's selected paths once, when editing an existing audit
+  // and the dataset detail (which now carries `path`) has loaded. Guarded to
+  // run only once per form mount so it never stomps the user's own
+  // subsequent selection changes. An org unit no longer assigned to the
+  // dataset since this audit was last saved simply won't resolve a path --
+  // matches the old flat picker's existing behavior of only ever offering
+  // currently-assigned org units.
+  useEffect(() => {
+    if (!isEditing || !audit || !detail || seededOrgUnitPathsRef.current) return
+    const savedIds = new Set(audit.orgUnits.map((ou) => ou.id))
+    const paths = detail.organisationUnits.filter((ou) => savedIds.has(ou.id)).map((ou) => ou.path)
+    setOrgUnitPaths(paths)
+    seededOrgUnitPathsRef.current = true
+  }, [isEditing, audit, detail])
+
+  // Keep the lookback window's default in sync with freshness mode, but
+  // only until the user edits it themselves -- same "default, then
+  // independently overridable" pattern this form already uses for
+  // expectedUpdateDays/trendChangeThresholdPercent.
+  useEffect(() => {
+    if (!lookbackDaysTouchedRef.current) setLookbackDays(String(defaultLookbackDays(freshnessMode)))
+  }, [freshnessMode])
 
   const numericDataElements = useMemo(
     () => (detail?.dataElements ?? []).filter((de) => isNumericValueType(de.valueType)),
@@ -139,10 +184,11 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   const orgUnitOptions = detail?.organisationUnits ?? audit?.orgUnits ?? []
   const selectedOrgUnits = orgUnitOptions.filter((ou) => orgUnitIds.includes(ou.id))
 
-  function handleSelectOrgUnits(selected: string[]) {
-    setOrgUnitIds(selected)
-    if (requireAllOrgUnits) setExpectedOrgUnitIds(selected)
-    else setExpectedOrgUnitIds((prev) => prev.filter((id) => selected.includes(id)))
+  function handleSelectOrgUnitPaths(paths: string[]) {
+    setOrgUnitPaths(paths)
+    const ids = paths.map((p) => p.split('/').pop()!)
+    if (requireAllOrgUnits) setExpectedOrgUnitIds(ids)
+    else setExpectedOrgUnitIds((prev) => prev.filter((id) => ids.includes(id)))
   }
 
   function handleToggleRequireAll(checked: boolean) {
@@ -155,11 +201,26 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
     if (!dataSetId) return 'Select a dataset.'
     if (!dataElementId) return 'Select a data element.'
     if (orgUnitIds.length === 0) return 'Select at least one org unit.'
+    // The tree browses the whole instance hierarchy (it has no concept of
+    // "only this dataset's org units"), so this is where that constraint is
+    // actually enforced -- the same correctness property the old flat
+    // picker had implicitly, by only ever listing assignable org units.
+    if (detail) {
+      const assignedIds = new Set(detail.organisationUnits.map((ou) => ou.id))
+      const invalidIds = orgUnitIds.filter((id) => !assignedIds.has(id))
+      if (invalidIds.length > 0) {
+        const invalidLabel = invalidIds.map((id) => orgUnitNamesById[id] ?? id).join(', ')
+        return `These selected org units aren't assigned to this dataset: ${invalidLabel}. Deselect them in the tree above.`
+      }
+    }
     if (!periodTypeSupported) {
       return `This dataset's period type (${detail?.periodType ?? 'unknown'}) is not supported yet. Supported types: ${SUPPORTED_PERIOD_TYPES.join(', ')}.`
     }
     if (freshnessMode === 'operational' && expectedUpdateDays && Number.isNaN(Number(expectedUpdateDays))) {
       return 'Expected update cycle must be a number.'
+    }
+    if (!lookbackDays.trim() || Number.isNaN(Number(lookbackDays)) || Number(lookbackDays) <= 0) {
+      return 'Lookback window must be a positive number of days.'
     }
     return null
   }
@@ -186,6 +247,7 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
       expectedOrgUnitIds: requireAllOrgUnits ? orgUnitIds : expectedOrgUnitIds,
       freshnessMode,
       expectedUpdateDays: freshnessMode === 'operational' && expectedUpdateDays ? Number(expectedUpdateDays) : null,
+      lookbackDays: Number(lookbackDays),
       sourceName: sourceName.trim() || null,
       sourceUrl: sourceUrl.trim() || null,
       license: license.trim() || null,
@@ -308,20 +370,29 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
                 </div>
               )}
 
-              <MultiSelectField
-                label="Org units to query"
-                required
-                loading={detailLoading}
-                filterable
-                filterPlaceholder="Filter org units..."
-                noMatchText="No org units found."
-                selected={orgUnitIds}
-                onChange={({ selected }) => handleSelectOrgUnits(selected)}
-              >
-                {orgUnitOptions.map((ou) => (
-                  <MultiSelectOption key={ou.id} label={ou.name} value={ou.id} />
-                ))}
-              </MultiSelectField>
+              <div>
+                <div style={{ marginBottom: 8, fontWeight: 500 }}>Org units to query *</div>
+                <div style={{ fontSize: 12, color: '#6e7a89', marginBottom: 8 }}>
+                  Browses the whole instance hierarchy -- selecting an org unit not assigned to this dataset will
+                  block saving below.
+                </div>
+                {orgUnitRootsLoading || detailLoading ? (
+                  <CircularLoader small />
+                ) : (
+                  <div
+                    style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #dbe4ea', borderRadius: 4, padding: 8 }}
+                  >
+                    <OrganisationUnitTree
+                      roots={orgUnitRoots}
+                      selected={orgUnitPaths}
+                      onChange={(payload) => {
+                        setOrgUnitNamesById((prev) => ({ ...prev, [payload.id]: payload.displayName }))
+                        handleSelectOrgUnitPaths(payload.selected)
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
 
               <CheckboxField
                 label="Require all selected org units to report (recommended)"
@@ -369,6 +440,17 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
               helpText="How many days can pass before this audit is considered stale."
             />
           )}
+
+          <InputField
+            label="Lookback window (days)"
+            type="number"
+            value={lookbackDays}
+            onChange={({ value }) => {
+              lookbackDaysTouchedRef.current = true
+              setLookbackDays(value ?? '')
+            }}
+            helpText="How far back audit queries look. Defaults from the freshness mode above -- shorten it for a large, high-frequency dataset, or lengthen it for a dataset with sparse historical reporting."
+          />
 
           <InputField label="Description / notes (optional)" value={description} onChange={({ value }) => setDescription(value ?? '')} />
           <InputField label="Source name (optional)" value={sourceName} onChange={({ value }) => setSourceName(value ?? '')} />

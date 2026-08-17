@@ -78,3 +78,11 @@ export function parsePeriod(periodType: PeriodType, id: string): ParsedPeriod {
 export function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
+
+// Replaces a hardcoded, unbounded startDate=2000-01-01 in the audit-trust
+// and outlier-detection queries with a real, per-audit-configurable window.
+export function computeStartDate(lookbackDays: number, asOf: Date = new Date()): string {
+  const start = new Date(asOf)
+  start.setUTCDate(start.getUTCDate() - lookbackDays)
+  return isoDate(start)
+}

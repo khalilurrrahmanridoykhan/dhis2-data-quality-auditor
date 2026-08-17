@@ -1,4 +1,5 @@
 import type { useDataEngine } from '@dhis2/app-runtime'
+import { computeStartDate } from '../lib/period'
 import type { QualityCheck } from '../lib/qualityChecks'
 import type { AuditConfig } from '../types/audit'
 
@@ -58,7 +59,7 @@ export async function fetchNativeOutlierCheck(engine: Engine, audit: AuditConfig
         params: {
           dx: audit.dataElementId,
           ou: audit.orgUnits.map((ou) => ou.id),
-          startDate: '2000-01-01',
+          startDate: computeStartDate(audit.lookbackDays),
           endDate: new Date().toISOString().slice(0, 10),
           algorithm: 'Z_SCORE',
           threshold: 3,

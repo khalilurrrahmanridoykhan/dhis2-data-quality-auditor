@@ -24,6 +24,7 @@ function makeAudit(overrides: Partial<AuditConfig> = {}): AuditConfig {
     expectedOrgUnitIds: ['ou1', 'ou2'],
     freshnessMode: 'operational',
     expectedUpdateDays: 45,
+    lookbackDays: 365,
     sourceName: null,
     sourceUrl: null,
     license: null,

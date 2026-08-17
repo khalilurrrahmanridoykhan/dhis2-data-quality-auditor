@@ -1,5 +1,6 @@
 import { useDataEngine } from '@dhis2/app-runtime'
 import { useCallback, useEffect, useState } from 'react'
+import { computeStartDate } from '../lib/period'
 import { buildDataTrustReport, type DataPoint, type DataTrustReport, type QualityCheck } from '../lib/qualityChecks'
 import type { AuditConfig, AuditOrgUnit } from '../types/audit'
 
@@ -34,6 +35,7 @@ async function fetchAggregatedPoints(
   engine: Engine,
   dataElementId: string,
   orgUnits: AuditOrgUnit[],
+  startDate: string,
 ): Promise<DataPoint[]> {
   if (orgUnits.length === 0) return []
 
@@ -43,7 +45,7 @@ async function fetchAggregatedPoints(
       params: {
         dataElement: dataElementId,
         orgUnit: orgUnits.map((ou) => ou.id),
-        startDate: '2000-01-01',
+        startDate,
         endDate: todayIso(),
       },
     },
@@ -85,11 +87,12 @@ export async function fetchAuditReport(
   audit: AuditConfig,
   externalChecks: QualityCheck[] = [],
 ): Promise<DataTrustReport> {
-  const points = await fetchAggregatedPoints(engine, audit.dataElementId, audit.orgUnits)
+  const startDate = computeStartDate(audit.lookbackDays)
+  const points = await fetchAggregatedPoints(engine, audit.dataElementId, audit.orgUnits, startDate)
 
   let comparisonPoints: DataPoint[] | undefined
   if (audit.comparisonDataElementId) {
-    comparisonPoints = await fetchAggregatedPoints(engine, audit.comparisonDataElementId, audit.orgUnits)
+    comparisonPoints = await fetchAggregatedPoints(engine, audit.comparisonDataElementId, audit.orgUnits, startDate)
   }
 
   return buildDataTrustReport(points, audit, new Date(), { comparisonPoints, externalChecks })

@@ -36,6 +36,11 @@ export interface AuditConfig {
 
   freshnessMode: FreshnessMode
   expectedUpdateDays: number | null
+  // How far back audit queries (dataValueSets, outlierDetection) look --
+  // replaces a previously hardcoded, unbounded startDate=2000-01-01.
+  // Not nullable: always has a concrete bound. Defaulted from freshnessMode
+  // via defaultLookbackDays() below, independently editable per audit.
+  lookbackDays: number
 
   sourceName: string | null
   sourceUrl: string | null
@@ -62,6 +67,14 @@ export interface AuditConfig {
 export const SUPPORTED_PERIOD_TYPES: PeriodType[] = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'SixMonthly', 'Yearly']
 
 export const NUMERIC_VALUE_TYPES = ['INTEGER', 'INTEGER_POSITIVE', 'INTEGER_ZERO_OR_POSITIVE', 'NUMBER'] as const
+
+// Default lookback window, keyed off freshnessMode -- an operational
+// (regularly-updating) dataset only needs a recent window; a historical
+// (fixed, closed) dataset needs a much wider one. Still independently
+// editable per audit (see AuditForm's "Lookback window" field).
+export function defaultLookbackDays(mode: FreshnessMode): number {
+  return mode === 'operational' ? 365 : 1825
+}
 
 export function newAuditDefaults(): Pick<
   AuditConfig,

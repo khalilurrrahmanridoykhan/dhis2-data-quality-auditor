@@ -1,4 +1,4 @@
-import { isoDate, parsePeriod } from './period'
+import { computeStartDate, isoDate, parsePeriod } from './period'
 
 describe('parsePeriod: Daily', () => {
   test('a single calendar day', () => {
@@ -106,5 +106,23 @@ describe('parsePeriod: Yearly', () => {
 
   test('rejects a malformed yearly period', () => {
     expect(() => parsePeriod('Yearly', '24')).toThrow()
+  })
+})
+
+describe('computeStartDate', () => {
+  test('subtracts lookbackDays from a fixed asOf date', () => {
+    const asOf = new Date(Date.UTC(2026, 5, 15)) // 2026-06-15
+    expect(computeStartDate(365, asOf)).toBe('2025-06-15')
+    expect(computeStartDate(30, asOf)).toBe('2026-05-16')
+  })
+
+  test('crosses a year boundary correctly', () => {
+    const asOf = new Date(Date.UTC(2026, 0, 10)) // 2026-01-10
+    expect(computeStartDate(30, asOf)).toBe('2025-12-11')
+  })
+
+  test('a lookback of 0 returns asOf itself', () => {
+    const asOf = new Date(Date.UTC(2026, 5, 15))
+    expect(computeStartDate(0, asOf)).toBe('2026-06-15')
   })
 })
