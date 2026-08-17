@@ -48,14 +48,28 @@ describe('withLookbackDaysDefault', () => {
     const legacy = makeAudit({ freshnessMode: 'operational' }) as unknown as Record<string, unknown>
     delete legacy.lookbackDays
     const result = withLookbackDaysDefault(legacy as unknown as AuditConfig)
-    expect(result.lookbackDays).toBe(defaultLookbackDays('operational'))
+    expect(result.lookbackDays).toBe(defaultLookbackDays('operational', 'Monthly'))
   })
 
   test('backfills using historical default when freshnessMode is historical', () => {
     const legacy = makeAudit({ freshnessMode: 'historical' }) as unknown as Record<string, unknown>
     delete legacy.lookbackDays
     const result = withLookbackDaysDefault(legacy as unknown as AuditConfig)
-    expect(result.lookbackDays).toBe(defaultLookbackDays('historical'))
+    expect(result.lookbackDays).toBe(defaultLookbackDays('historical', 'Monthly'))
+  })
+
+  test('backfills an Operational Yearly audit past the 365-day mode default (the real AWD bug case)', () => {
+    // AWD on dhis2.krrkhan.com: Operational + Yearly, 99 real data values
+    // spanning 2014-2024, latest entered period ~594 days before "now".
+    // A bare 365-day window (the pre-fix behavior) missed all of it.
+    const legacy = makeAudit({ freshnessMode: 'operational', periodType: 'Yearly' }) as unknown as Record<
+      string,
+      unknown
+    >
+    delete legacy.lookbackDays
+    const result = withLookbackDaysDefault(legacy as unknown as AuditConfig)
+    expect(result.lookbackDays).toBeGreaterThanOrEqual(594)
+    expect(result.lookbackDays).toBe(defaultLookbackDays('operational', 'Yearly'))
   })
 
   test('leaves an already-valid lookbackDays untouched', () => {

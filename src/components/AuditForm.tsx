@@ -79,7 +79,9 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   const [expectedUpdateDays, setExpectedUpdateDays] = useState(
     audit?.expectedUpdateDays !== null && audit?.expectedUpdateDays !== undefined ? String(audit.expectedUpdateDays) : '',
   )
-  const [lookbackDays, setLookbackDays] = useState(String(audit?.lookbackDays ?? defaultLookbackDays(freshnessMode)))
+  const [lookbackDays, setLookbackDays] = useState(
+    String(audit?.lookbackDays ?? defaultLookbackDays(freshnessMode, audit?.periodType ?? null)),
+  )
   const lookbackDaysTouchedRef = useRef(audit !== null)
 
   const [sourceName, setSourceName] = useState(audit?.sourceName ?? '')
@@ -138,6 +140,8 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
   const { detail, loading: detailLoading } = useDataSetDetail(dataSetId)
   const { roots: orgUnitRoots, loading: orgUnitRootsLoading } = useOrgUnitRoots()
 
+  const periodType = (detail?.periodType ?? audit?.periodType ?? null) as PeriodType | null
+
   // Reset picks that depend on the dataset whenever it changes.
   useEffect(() => {
     if (!isEditing) {
@@ -166,20 +170,19 @@ export function AuditForm({ audit, currentUsername, onClose, onSave }: Props) {
     seededOrgUnitPathsRef.current = true
   }, [isEditing, audit, detail])
 
-  // Keep the lookback window's default in sync with freshness mode, but
-  // only until the user edits it themselves -- same "default, then
-  // independently overridable" pattern this form already uses for
-  // expectedUpdateDays/trendChangeThresholdPercent.
+  // Keep the lookback window's default in sync with freshness mode and the
+  // selected dataset's period cadence, but only until the user edits it
+  // themselves -- same "default, then independently overridable" pattern
+  // this form already uses for expectedUpdateDays/trendChangeThresholdPercent.
   useEffect(() => {
-    if (!lookbackDaysTouchedRef.current) setLookbackDays(String(defaultLookbackDays(freshnessMode)))
-  }, [freshnessMode])
+    if (!lookbackDaysTouchedRef.current) setLookbackDays(String(defaultLookbackDays(freshnessMode, periodType)))
+  }, [freshnessMode, periodType])
 
   const numericDataElements = useMemo(
     () => (detail?.dataElements ?? []).filter((de) => isNumericValueType(de.valueType)),
     [detail],
   )
 
-  const periodType = (detail?.periodType ?? audit?.periodType ?? null) as PeriodType | null
   const periodTypeSupported = periodType !== null && SUPPORTED_PERIOD_TYPES.includes(periodType)
 
   const orgUnitOptions = detail?.organisationUnits ?? audit?.orgUnits ?? []

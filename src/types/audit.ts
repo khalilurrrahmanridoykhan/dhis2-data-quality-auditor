@@ -68,12 +68,34 @@ export const SUPPORTED_PERIOD_TYPES: PeriodType[] = ['Daily', 'Weekly', 'Monthly
 
 export const NUMERIC_VALUE_TYPES = ['INTEGER', 'INTEGER_POSITIVE', 'INTEGER_ZERO_OR_POSITIVE', 'NUMBER'] as const
 
-// Default lookback window, keyed off freshnessMode -- an operational
-// (regularly-updating) dataset only needs a recent window; a historical
-// (fixed, closed) dataset needs a much wider one. Still independently
-// editable per audit (see AuditForm's "Lookback window" field).
-export function defaultLookbackDays(mode: FreshnessMode): number {
-  return mode === 'operational' ? 365 : 1825
+// Minimum lookback needed to reliably surface the most recently *closed*
+// period for a given cadence, regardless of where "today" falls in the
+// calendar -- this is about period-boundary alignment, not staleness.
+// Real bug found live: an Operational, Yearly audit (AWD) with 99 real data
+// values spanning 2014-2024 failed "Records present" under a bare 365-day
+// window, because its latest entered period (2024) sat ~594 days before
+// "now" -- past 365, but nowhere near actually stale for an annual dataset.
+const PERIOD_LOOKBACK_FLOOR_DAYS: Record<PeriodType, number> = {
+  Daily: 14,
+  Weekly: 30,
+  Monthly: 90,
+  Quarterly: 275,
+  SixMonthly: 550,
+  Yearly: 1100,
+}
+
+// Default lookback window. Keyed primarily off freshnessMode -- an
+// operational (regularly-updating) dataset only needs a recent window; a
+// historical (fixed, closed) dataset needs a much wider one -- then raised
+// to the period-cadence floor above so a coarse-grained (e.g. Yearly)
+// dataset never gets a window narrower than one real period needs. `null`
+// periodType (not yet known, e.g. a brand-new audit before a dataset is
+// picked) skips the floor and returns the mode default alone. Still
+// independently editable per audit (see AuditForm's "Lookback window" field).
+export function defaultLookbackDays(mode: FreshnessMode, periodType: PeriodType | null): number {
+  const modeDefault = mode === 'operational' ? 365 : 1825
+  if (periodType === null) return modeDefault
+  return Math.max(modeDefault, PERIOD_LOOKBACK_FLOOR_DAYS[periodType])
 }
 
 // Real bug found live, not hypothetical: lookbackDays was added as a
@@ -89,7 +111,7 @@ export function defaultLookbackDays(mode: FreshnessMode): number {
 // the app ever sees is guaranteed complete from here on.
 export function withLookbackDaysDefault(audit: AuditConfig): AuditConfig {
   if (typeof audit.lookbackDays === 'number' && !Number.isNaN(audit.lookbackDays)) return audit
-  return { ...audit, lookbackDays: defaultLookbackDays(audit.freshnessMode) }
+  return { ...audit, lookbackDays: defaultLookbackDays(audit.freshnessMode, audit.periodType) }
 }
 
 export function newAuditDefaults(): Pick<
